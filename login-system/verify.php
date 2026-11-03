@@ -3,35 +3,30 @@
    is included in the register.php email message 
 */
 require 'db.php';
+require_once __DIR__ . '/auth.php';
 session_start();
 
-// Make sure email and hash variables aren't empty
-if(isset($_GET['email']) && !empty($_GET['email']) AND isset($_GET['hash']) && !empty($_GET['hash']))
+// Verify a scalar email and URL-safe token; the database stores only its digest.
+if (isset($_GET['email'], $_GET['token'])
+    && is_string($_GET['email'])
+    && is_string($_GET['token'])
+    && $_GET['email'] !== ''
+    && preg_match('/\A[a-f0-9]{64}\z/', $_GET['token']) === 1)
 {
-    $email = $mysqli->escape_string($_GET['email']); 
-    $hash = $mysqli->escape_string($_GET['hash']); 
-    
-    // Select user with matching email and hash, who hasn't verified their account yet (active = 0)
-    $result = $mysqli->query("SELECT * FROM users WHERE email='$email' AND hash='$hash' AND active='0'");
-
-    if ( $result->num_rows == 0 )
-    { 
+    if (!consumeVerificationToken($mysqli, $_GET['email'], $_GET['token'])) {
         $_SESSION['message'] = "Account has already been activated or the URL is invalid!";
-
         header("location: error.php");
+        exit;
     }
-    else {
-        $_SESSION['message'] = "Your account has been activated!";
-        
-        // Set the user status to active (active = 1)
-        $mysqli->query("UPDATE users SET active='1' WHERE email='$email'") or die($mysqli->error);
-        $_SESSION['active'] = 1;
-        
-        header("location: success.php");
-    }
+
+    $_SESSION['message'] = "Your account has been activated!";
+    $_SESSION['active'] = 1;
+    header("location: success.php");
+    exit;
 }
 else {
     $_SESSION['message'] = "Invalid parameters provided for account verification!";
     header("location: error.php");
+    exit;
 }     
 ?>
