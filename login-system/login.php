@@ -5,15 +5,16 @@ require_once __DIR__ . '/auth.php';
 
 $email = isset($_POST['email']) && is_string($_POST['email']) ? $_POST['email'] : '';
 $password = isset($_POST['password']) && is_string($_POST['password']) ? $_POST['password'] : '';
-$user = findUserByEmail($mysqli, $email);
+$loginResult = checkLoginCredentials($mysqli, $email, $password);
 
-if ($user === null) { // User doesn't exist
+if ($loginResult['status'] === 'unknown_email') {
     $_SESSION['message'] = "User with that email doesn't exist!";
     header("location: error.php");
     exit;
 }
 
-if (password_verify($password, $user['password'])) {
+if ($loginResult['status'] === 'authenticated') {
+    $user = $loginResult['user'];
     $_SESSION['email'] = $user['email'];
     $_SESSION['first_name'] = $user['first_name'];
     $_SESSION['last_name'] = $user['last_name'];
