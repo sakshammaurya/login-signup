@@ -1,10 +1,10 @@
 # Login and Signup System
 
-A small PHP and MySQL account application with registration, email verification, login, password reset, and session-based profile pages. This repository is also a focused example of improving a legacy authentication flow with a parameterized database lookup and a database-backed regression test.
+A small PHP and MySQL account application with registration, email verification, login, password reset, and session-based profile pages. The login's parameterized email lookup was already present on the base branch before this PR. This PR adds a shared credential-check function, expands database-backed regression coverage, and provides a Docker Compose development setup.
 
 ## Highlights
 
-- Login retrieves an account with a MySQLi prepared statement and a bound email value.
+- Login retrieves an account with a MySQLi prepared statement and a bound email value (pre-existing on the base branch).
 - Passwords are verified with PHP's `password_verify()`.
 - Authentication lookup and credential decisions live in `login-system/auth.php` and are exercised by a regression test.
 - Database connection settings are read from environment variables; credentials are not committed.
@@ -56,7 +56,7 @@ The test inserts a uniquely named account inside a transaction and rolls it back
 docker compose exec -T app php tests/login_query_regression.php
 ```
 
-It checks valid credentials, a wrong password, an unknown email, and an SQL injection-shaped email. Successful checks print `PASS` lines; failures throw an exception and exit unsuccessfully. Do not point this test at a production database.
+It calls `checkLoginCredentials()` against the database to check valid credentials, a wrong password, an unknown email, and an SQL injection-shaped email. Successful checks print `PASS` lines; failures throw an exception and exit unsuccessfully. It does not issue an HTTP request or assert the session, redirect, or error response from the login endpoint. Do not point this test at a production database.
 
 ### Verification status for this change
 
@@ -70,6 +70,6 @@ It checks valid credentials, a wrong password, an unknown email, and an SQL inje
 
 ## Security scope
 
-The AUTH-001 change protects the login email lookup and adds regression coverage for that flow. It is not a security audit of the entire application. Other account flows still contain SQL assembled from request values, including registration and account recovery. Review and parameterize those flows before using this project with real user data. Also configure HTTPS, secure session-cookie settings, CSRF protection, and a production-grade mail and deployment setup before any public deployment.
+The parameterized login email lookup predates this PR and is present in the base branch. This PR adds a shared credential-check abstraction and database-backed regression coverage; it does not add endpoint-level session or redirect tests. It is not a security audit of the entire application. Other account flows still contain SQL assembled from request values, including registration and account recovery. Review and parameterize those flows before using this project with real user data. Also configure HTTPS, secure session-cookie settings, CSRF protection, and a production-grade mail and deployment setup before any public deployment.
 
 See [the AUTH-001 proof of work](docs/AUTH-001-security-review.md) for the finding, implementation details, and verification record.
