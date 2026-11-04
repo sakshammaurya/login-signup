@@ -13,7 +13,7 @@ Registration generates 32 random bytes using `random_bytes()` and hex-encodes th
 
 Verification accepts only scalar email and a 64-character lowercase hexadecimal token. It hashes the supplied token and runs one prepared conditional update requiring the matching email and digest, `active = 0`, and an expiry later than MySQL's `UTC_TIMESTAMP()`. The same statement activates the user and clears the token fields. Exactly one row must be affected. Invalid, expired, reused, already-used, wrong-account, and concurrent duplicate attempts therefore do not activate an account.
 
-The pre-existing `hash` field remains unchanged for password reset compatibility. No raw verification token is written to the database or emitted by tests.
+The pre-existing `hash` field remains unchanged for password-reset compatibility; AUTH-003 later moved reset authorization into dedicated reset-token fields. No raw verification token is written to the database or emitted by tests.
 
 ## Schema migration
 
@@ -23,7 +23,7 @@ Fresh databases use the updated `login-system/sql/sql.txt`. Existing installatio
 docker compose exec -T db mysql -uroot -p accounts < login-system/sql/migrations/2026-11-03-verification-tokens.sql
 ```
 
-The migration adds nullable `verification_token_hash CHAR(64)` and `verification_expires_at DATETIME` fields. Existing accounts are preserved. Existing unverified users must receive a new verification link because old tokens are not migrated. Password reset continues to use the old `hash` column.
+The migration adds nullable `verification_token_hash CHAR(64)` and `verification_expires_at DATETIME` fields. Existing accounts are preserved. Existing unverified users must receive a new verification link because old tokens are not migrated. At the time AUTH-002 was implemented, password reset still used `hash`; AUTH-003 moved it to separate columns without changing this migration.
 
 ## Tests
 
@@ -44,6 +44,6 @@ The HTTP endpoint suite runs as `docker compose exec -T app php tests/verificati
 ## Remaining limitations
 
 - The deployment-specific verification link origin remains hard-coded to localhost, as changing environment-specific URLs is outside this focused security fix.
-- Existing password-reset token issuance and validation still use the legacy `hash` field and need a separate review.
+- The legacy `hash` field remains present for compatibility but is no longer used by the reset authorization flow.
 - Email delivery success is not checked by the legacy registration flow.
 - Expiry timestamps are written in UTC and compared against MySQL `UTC_TIMESTAMP()`.

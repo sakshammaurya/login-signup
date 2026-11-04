@@ -11,6 +11,7 @@ services:
       DB_USER: root
       DB_PASSWORD: ${DB_PASSWORD:-local-dev-password}
       DB_NAME: accounts
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
     ports:
       - "127.0.0.1:8080:80"
     volumes:

@@ -10,6 +10,8 @@ CREATE TABLE `accounts`.`users`
     `hash` VARCHAR(32) NOT NULL,
     `verification_token_hash` CHAR(64) NULL,
     `verification_expires_at` DATETIME NULL,
+    `password_reset_token_hash` CHAR(64) NULL,
+    `password_reset_expires_at` DATETIME NULL,
     `active` BOOL NOT NULL DEFAULT 0,
 PRIMARY KEY (`id`) 
 );
