@@ -1,47 +1,48 @@
 <?php 
 /* Reset your password form, sends reset.php password link */
 require 'db.php';
+require_once __DIR__ . '/auth.php';
 session_start();
 
-// Check if form submitted with method="post"
-if ( $_SERVER['REQUEST_METHOD'] == 'POST' ) 
-{   
-    $email = $mysqli->escape_string($_POST['email']);
-    $result = $mysqli->query("SELECT * FROM users WHERE email='$email'");
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $genericMessage = 'If an account exists for that email, a password reset link has been sent.';
+    $email = $_POST['email'] ?? null;
 
-    if ( $result->num_rows == 0 ) // User doesn't exist
-    { 
-        $_SESSION['message'] = "User with that email doesn't exist!";
-        header("location: error.php");
+    if (is_string($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        try {
+            $lookup = $mysqli->prepare('SELECT email, first_name FROM users WHERE email = ? LIMIT 1');
+            $lookup->bind_param('s', $email);
+            $lookup->execute();
+            $user = $lookup->get_result()->fetch_assoc() ?: null;
+            $lookup->close();
+
+            if ($user !== null) {
+                $reset = createPasswordResetToken();
+                $expiresAt = gmdate('Y-m-d H:i:s', time() + 3600);
+                if (!issuePasswordResetToken($mysqli, $user['email'], $reset['token_hash'], $expiresAt)) {
+                    error_log('Password reset token could not be issued.');
+                } else {
+                    $baseUrl = rtrim(getenv('APP_BASE_URL') ?: 'http://localhost:8080', '/');
+                    $resetUrl = $baseUrl . '/reset.php?email='
+                        . rawurlencode($user['email']) . '&token=' . rawurlencode($reset['token']);
+                    $messageBody = "Hello {$user['first_name']},\n\n"
+                        . "You requested a password reset. Use this link within one hour:\n\n"
+                        . $resetUrl . "\n";
+
+                    if (!@mail($user['email'], 'Password Reset Link', $messageBody)) {
+                        discardPasswordResetToken($mysqli, $user['email'], $reset['token_hash']);
+                        error_log('Password reset email delivery failed.');
+                    }
+                }
+            }
+        } catch (mysqli_sql_exception $exception) {
+            error_log('Password reset request database operation failed.');
+        }
     }
-    else { // User exists (num_rows != 0)
 
-        $user = $result->fetch_assoc(); // $user becomes array with user data
-         
-        $email = $user['email'];
-        $hash = $user['hash'];
-        $first_name = $user['first_name'];
-
-        // Session message to display on success.php
-        $_SESSION['message'] = "<p>Please check your email <span>$email</span>"
-        . " for a confirmation link to complete your password reset!</p>";
-
-        // Send registration confirmation link (reset.php)
-        $to      = $email;
-        $subject = 'Password Reset Link ( clevertechie.com )';
-        $message_body = '
-        Hello '.$first_name.',
-
-        You have requested password reset!
-
-        Please click this link to reset your password:
-
-        http://localhost/login-system/reset.php?email='.$email.'&hash='.$hash;  
-
-        mail($to, $subject, $message_body);
-
-        header("location: success.php");
-  }
+    $_SESSION['message'] = $genericMessage;
+    header('Location: success.php');
+    exit;
 }
 ?>
 <!DOCTYPE html>

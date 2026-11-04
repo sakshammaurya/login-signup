@@ -3,26 +3,32 @@
    from the forgot.php email message
 */
 require 'db.php';
+require_once __DIR__ . '/auth.php';
 session_start();
 
-// Make sure email and hash variables aren't empty
-if( isset($_GET['email']) && !empty($_GET['email']) AND isset($_GET['hash']) && !empty($_GET['hash']) )
+function rejectPasswordResetLink(): never
 {
-    $email = $mysqli->escape_string($_GET['email']); 
-    $hash = $mysqli->escape_string($_GET['hash']); 
-
-    // Make sure user email with matching hash exist
-    $result = $mysqli->query("SELECT * FROM users WHERE email='$email' AND hash='$hash'");
-
-    if ( $result->num_rows == 0 )
-    { 
-        $_SESSION['message'] = "You have entered invalid URL for password reset!";
-        header("location: error.php");
-    }
+    $_SESSION['message'] = 'You have entered an invalid or expired password reset link.';
+    header('Location: error.php');
+    exit;
 }
-else {
-    $_SESSION['message'] = "Sorry, verification failed, try again!";
-    header("location: error.php");  
+
+$email = $_GET['email'] ?? null;
+$token = $_GET['token'] ?? null;
+if (!is_string($email)
+    || !filter_var($email, FILTER_VALIDATE_EMAIL)
+    || !is_string($token)
+    || preg_match('/\A[a-f0-9]{64}\z/', $token) !== 1) {
+    rejectPasswordResetLink();
+}
+
+try {
+    if (!isPasswordResetTokenValid($mysqli, $email, $token)) {
+        rejectPasswordResetLink();
+    }
+} catch (mysqli_sql_exception $exception) {
+    error_log('Password reset link validation failed.');
+    rejectPasswordResetLink();
 }
 ?>
 <!DOCTYPE html>
@@ -55,8 +61,8 @@ else {
           </div>
           
           <!-- This input field is needed, to get the email of the user -->
-          <input type="hidden" name="email" value="<?= $email ?>">    
-          <input type="hidden" name="hash" value="<?= $hash ?>">    
+          <input type="hidden" name="email" value="<?= htmlspecialchars($email, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
+          <input type="hidden" name="token" value="<?= htmlspecialchars($token, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
               
           <button class="button button-block"/>Apply</button>
           

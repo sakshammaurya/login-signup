@@ -7,7 +7,7 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../auth.php';
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-$baseUrl = getenv('APP_BASE_URL') ?: 'http://127.0.0.1';
+$baseUrl = getenv('APP_TEST_BASE_URL') ?: 'http://127.0.0.1';
 $cookieJar = tempnam(sys_get_temp_dir(), 'verify-cookie-');
 $fixtures = [];
 
